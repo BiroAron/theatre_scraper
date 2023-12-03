@@ -4,6 +4,7 @@ from datetime import datetime
 import pandas as pd
 import json
 import re
+import os
 import time
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -25,7 +26,6 @@ class TheaterPlay:
 
     def __str__(self):
         return f'{self.day_name} - {self.date} - {self.time} - {self.available_seats} - {self.playwright} - {self.title} - {self.director} - {self.progcomment} - {self.location} - {self.details}'
-
 
 url = 'https://www.huntheater.ro/musor/program/'
 result = requests.get(url)
@@ -54,7 +54,6 @@ for month in months:
         play.playwright = el.find('div', class_='proghilite').text
         play.progcomment = el.find('div', class_='progcomment').text
 
-        # Extract location from progcomment
         play.location = play.progcomment.split('-')[0].strip()
 
         progtitle_div = el.find('div', class_='progtitle')
@@ -107,17 +106,19 @@ for month in months:
 
 current_date = datetime.now().strftime("%Y-%m-%d")
 
-with open('plays.json', 'a') as file:
+json_file_path = 'plays.json'
+write_mode = 'a' if os.path.exists(json_file_path) else 'w'
+with open(json_file_path, write_mode) as file:
     for play in all_plays:
         play_dict = play.__dict__
-        play_dict['date'] += ' ' + current_date
+        play_dict['scraping_date'] = current_date
         play_dict['location'] = play.location
         play_json = json.dumps(play_dict)
         file.write(play_json + '\n')
 
-data = [{'day_name': play.day_name, 'date': play.date, 'time': play.time, 'available_seats': play.available_seats, 'playwright': play.playwright, 'title': play.title,
-         'director': play.director, 'progcomment': play.progcomment, 'location': play.location, 'details': play.details} for play in all_plays]
-
-df = pd.DataFrame(data)
-
-df.to_excel('theater_plays_kolozsvar.xlsx')
+excel_file_path = 'theater_plays_kolozsvar.xlsx'
+df = pd.DataFrame([play.__dict__ for play in all_plays])
+if os.path.exists(excel_file_path):
+    df_existing = pd.read_excel(excel_file_path)
+    df = pd.concat([df_existing, df], ignore_index=True)
+df.to_excel(excel_file_path, index=False)
